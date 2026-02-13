@@ -1,0 +1,39 @@
+Résumé des actions effectuées et demande de l'utilisateur
+
+- Demande utilisateur :
+  - "prend le schema d'asservissement ci joint et fait moi le squelette en code et commente le plus que tu peut chaque ligne. va pas trop loin dans le code juste une base avec les librairies du MPU6050 a pendre en compte. base toi sur le main_asservi c un debut mais loin d'etre complet."
+  - Ensuite : "maintenant fait moi les ligne de code dans le main permettant de faire ce qui est demander sur ce schema d'asservissement"
+  - Enfin demandé de consigner tout cela dans un fichier texte nommé "info" (ce fichier).
+
+- Ce que j'ai fait (fichiers modifiés/ajoutés dans le squelette) :
+  - src/main.cpp
+    - Ajout d'un squelette complet de l'application ESP32 (Arduino framework) avec :
+      - Inclusion des librairies : Arduino, Wire, MPU6050.
+      - Déclaration d'un objet MPU6050 et d'une constante de sensibilité gyroscopique.
+      - Variables partagées protégées par un mutex FreeRTOS : theta_meas, omega_meas, control_output.
+      - Paramètres de contrôle modifiables via série : Kp, Kd, theta_set.
+      - Paramètres de filtrage/échantillonnage : Te, Tau, A, B et fonction computeFilterCoeffs().
+      - Trois tâches FreeRTOS :
+        - taskMPU : lecture périodique du MPU6050, conversion gyro -> °/s, intégration simple/filtrage, mise à jour des variables protégées.
+        - taskControl : périodique à Te, calcule une commande P+D (D basé sur la vitesse gyroscopique), met à jour control_output.
+        - taskSerial : parser série simple pour régler Kp, Kd, Te, Tau, Set (ex: "Kp 2.5").
+      - Protection des sections critiques par mutex et utilisation d'un drapeau FlagPrint pour affichage depuis loop().
+      - TODOs laissés : vérification mpu.testConnection(), configuration plages, actionneur (PWM/ledcWrite), estimateur complémentaire/kalman, calibrations et sécurités.
+  - platformio.ini
+    - Ajout de la dépendance lib_deps = MPU6050 (déjà présente dans le projet visible).
+
+- Utilisation / notes rapides :
+  - Ouvrir le moniteur série à 115200 bauds.
+  - Envoyer des commandes texte pour modifier paramètres :
+    - Exemple : "Kp 2.0" ou "Kd 0.1" ou "Te 10" ou "Tau 1000" ou "Set 5"
+  - Vérifier et ajuster :
+    - Sensibilité gyroscope (GYRO_SENS) selon la configuration du MPU6050.
+    - Priorités et tailles de pile des tâches selon la charge réelle.
+    - Remplacer l'intégrateur/filtre simple par un estimateur adapté pour une meilleure stabilité.
+    - Ajouter l'appel à l'actionneur (PWM/driver) dans taskControl.
+
+- Emplacement des fichiers modifiés :
+  - c:\Users\TEMP.GEII2.033\Documents\gyro-control\src\main.cpp
+  - c:\Users\TEMP.GEII2.033\Documents\gyro-control\platformio.ini
+
+Fin du fichier "info".
