@@ -8,8 +8,8 @@
 // --- Variables d'Asservissement ---
 char FlagCalcul = 0;
 float Ve, Vs = 0;
-float Te = 5;     // période d'échantillonage en ms
-float Tau = 500; // constante de temps du filtre en ms
+float Te = 5;               // période d'échantillonage en ms
+float Tau = 500;            // constante de temps du filtre en ms
 float Kp = 15.0;
 float Kd = 1.0;
 
@@ -21,6 +21,8 @@ float angle_filtre = 0;
 float Oeq = 0;
 float angle_offset;
 float ec_final,Ec,erreur;
+float Ec_offset;
+int pwm;
 
 
 float erreur_precedente = 0.0;
@@ -34,7 +36,7 @@ const int IN4 = 16;
 
 // PWM (LEDC) configuration for ESP32
 const int PWM_FREQ = 20000;
-const int PWM_RES = 8; // 8-bit resolution (0-255)
+const int PWM_RES = 10;       // 10-bit resolution (0-1023)
 const int PWM_CH1 = 0;
 const int PWM_CH2 = 1;
 const int PWM_CH3 = 2;
@@ -98,7 +100,7 @@ void initgyro()
     while (1)
     {
       delay(10);
-    } // Boucle infinie pour indiquer l'erreur
+    }                                                       // Boucle infinie pour indiquer l'erreur
   }
   mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
 }
@@ -113,10 +115,10 @@ float angle()
 
   angleAcc = atan2(ay, ax) * 180.0 / PI;
 
-  gyroz = -(gz * Tau / 1000.0) * 180.0 / PI; // Convertir en degrés et appliquer le filtre pour compenser l'offset
+  gyroz = -(gz * Tau / 1000.0) * 180.0 / PI;                // Convertir en degrés et appliquer le filtre pour compenser l'offset
 
-  E_filtrer = gyroz + angleAcc;                    // Combinaison du gyroscope et de l'accéléromètre pour obtenir une estimation plus stable de l'angle
-  angle_filtre = A * E_filtrer + B * angle_filtre; // Application du filtre pour lisser l'estimation de l'angle
+  E_filtrer = gyroz + angleAcc;                             // Combinaison du gyroscope et de l'accéléromètre pour obtenir une estimation plus stable de l'angle
+  angle_filtre = A * E_filtrer + B * angle_filtre;          // Application du filtre pour lisser l'estimation de l'angle
 
   return angle_filtre;
 }
@@ -126,16 +128,19 @@ void controle(void *parameters)
   static float Ec = 0;
   TickType_t t_precedent;
 
-  t_precedent = xTaskGetTickCount(); // Initialiser le temps précédent pour vTaskDelayUntil
+  t_precedent = xTaskGetTickCount();                        // Initialiser le temps précédent pour vTaskDelayUntil
 
   while (1)
   {
 
     erreur = Oeq - angle();
-    Ec = erreur * Kp; // Test avec un Kp = 15.0
+    Ec = erreur * Kp - Kd * (gz * (180/PI));                // Test avec un Kp = 29.0 -- pas mal
     ec_final = Ec;
 
-    int pwm = constrain((int)abs(Ec), 0, 255); // On utilise abs(ec_final) pour la valeur de puissance et on contraint entre 0 et 255
+    if (Ec>0) Ec += Ec_offset;                              // compensation de couple de forttement sec  +
+    if (Ec<0) Ec -= Ec_offset;                              //                    "                      -
+
+    int pwm = constrain((int)abs(Ec), 0, 1023);             // On utilise abs(pwm) pour la valeur de puissance et on contraint entre 0 et 1023
 
     if (Ec > 0)
     {
@@ -152,7 +157,7 @@ void controle(void *parameters)
       ledcWrite(PWM_CH4, 0);
     }
     FlagCalcul = 1;
-    vTaskDelayUntil(&t_precedent, pdMS_TO_TICKS(Te)); // Attendre jusqu'à la prochaine période d'échantillonnage
+    vTaskDelayUntil(&t_precedent, pdMS_TO_TICKS(Te));       // Attendre jusqu'à la prochaine période d'échantillonnage
   }
 }
 
@@ -181,17 +186,11 @@ void reception(char ch)
       valeur = chaine.substring(index + 1, length);
     }
 
-    if (commande == "Kp")
-    {
-      Kp = valeur.toFloat();
-      Ec = erreur * Kp;
-    }
-    if (commande == "Kd")
-    {
-      Kd = valeur.toFloat();
-
-    }
-
+    if (commande == "Kp")   Kp = valeur.toFloat();
+    if (commande == "Kd")   Kd = valeur.toFloat();
+    if (commande == "Ec_offset")   Ec_offset = valeur.toFloat();
+    if (commande == "pwm")   pwm = valeur.toInt();
+    
     chaine = "";
   }
   else
@@ -214,7 +213,7 @@ void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f\n", angleAcc, gyroz, angle_filtre);
+    Serial.printf("%f %f %f   %f %f\n", angleAcc, gyroz, angle_filtre, pwm, Ec_offset);
     FlagCalcul = 0;
   }
 }
