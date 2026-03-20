@@ -20,8 +20,8 @@ float E_filtrer;
 float angle_filtre = 0;
 float Oeq = 0;
 float angle_offset;
-float ec_final;
-float erreur;
+float ec_final,Ec,erreur;
+
 
 float erreur_precedente = 0.0;
 unsigned long t_precedent = 0;
@@ -132,7 +132,7 @@ void controle(void *parameters)
   {
 
     erreur = Oeq - angle();
-    Ec = erreur * 15.0; // Test avec un Kp = 15.0
+    Ec = erreur * Kp; // Test avec un Kp = 15.0
     ec_final = Ec;
 
     int pwm = constrain((int)abs(Ec), 0, 255); // On utilise abs(ec_final) pour la valeur de puissance et on contraint entre 0 et 255
@@ -156,7 +156,7 @@ void controle(void *parameters)
   }
 }
 
-/*
+
 void reception(char ch)
 {
 
@@ -181,18 +181,15 @@ void reception(char ch)
       valeur = chaine.substring(index + 1, length);
     }
 
-    if (commande == "Tau")
+    if (commande == "Kp")
     {
-      Tau = valeur.toFloat();
-      // calcul coeff filtre
-      A = 1 / (1 + Tau / Te);
-      B = Tau / Te * A;
+      Kp = valeur.toFloat();
+      Ec = erreur * Kp;
     }
-    if (commande == "Te")
+    if (commande == "Kd")
     {
-      Te = valeur.toInt();
-      A = 1 / (1 + Tau / Te);
-      B = Tau / Te * A;
+      Kd = valeur.toFloat();
+
     }
 
     chaine = "";
@@ -202,8 +199,8 @@ void reception(char ch)
     chaine += ch;
   }
 }
-*/
-/*
+
+
 void serialEvent()
 {
   while (Serial.available() > 0) // tant qu'il y a des caractères à lire
@@ -211,7 +208,7 @@ void serialEvent()
     reception(Serial.read());
   }
 }
-*/
+
 
 void loop()
 {
