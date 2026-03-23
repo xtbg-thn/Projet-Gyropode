@@ -125,7 +125,6 @@ float angle()
 
 void controle(void *parameters)
 {
-  static float Ec = 0;
   TickType_t t_precedent;
 
   t_precedent = xTaskGetTickCount();                        // Initialiser le temps précédent pour vTaskDelayUntil
@@ -134,13 +133,13 @@ void controle(void *parameters)
   {
 
     erreur = Oeq - angle();
-    Ec = erreur * Kp - Kd * (gz * (180/PI));                // Test avec un Kp = 29.0 -- pas mal
+    Ec = erreur * Kp + Kd * (gz * (180/PI));                // Test avec un Kp = 29.0 -- pas mal
     ec_final = Ec;
 
     if (Ec>0) Ec += Ec_offset;                              // compensation de couple de forttement sec  +
     if (Ec<0) Ec -= Ec_offset;                              //                    "                      -
 
-    int pwm = constrain((int)abs(Ec), 0, 1023);             // On utilise abs(pwm) pour la valeur de puissance et on contraint entre 0 et 1023
+    pwm = constrain((int)abs(Ec), 0, 1023);             // On utilise abs(pwm) pour la valeur de puissance et on contraint entre 0 et 1023
 
     if (Ec > 0)
     {
@@ -213,7 +212,7 @@ void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f   %f %f\n", angleAcc, gyroz, angle_filtre, pwm, Ec_offset);
+    Serial.printf("%f %f %f %d %f\n", angleAcc, gyroz, angle_filtre, pwm, Ec);
     FlagCalcul = 0;
   }
 }
