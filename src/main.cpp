@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include <String.h>
 #include <Wire.h>
-
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
 
@@ -20,10 +19,9 @@ float E_filtrer;
 float angle_filtre = 0;
 float Oeq = 0;
 float angle_offset;
-float ec_final,Ec,erreur;
-float Ec_offset;
-int pwm;
-
+float ec_final, erreur, Ec, Ecd, Ecg;
+int C0g = 585, C0d = 589;
+volatile int pwmg, pwmd;
 
 float erreur_precedente = 0.0;
 unsigned long t_precedent = 0;
@@ -133,33 +131,34 @@ void controle(void *parameters)
   {
 
     erreur = Oeq - angle();
-    Ec = erreur * Kp + Kd * (gz * (180/PI));                // Test avec un Kp = 29.0 -- pas mal
-    ec_final = Ec;
+    Ec = erreur * Kp + Kd * (gz * (180/PI));                
+    Ecd = Ec;
+    Ecg = Ec;
 
-    if (Ec>0) Ec += Ec_offset;                              // compensation de couple de forttement sec  +
-    if (Ec<0) Ec -= Ec_offset;                              //                    "                      -
+    if (Ec>0) Ecd += C0d; Ecg += C0g;                              // compensation de couple de forttement sec  +
+    if (Ec<0) Ecd -= C0d; Ecg -= C0g;                              //                    "                      -
 
-    pwm = constrain((int)abs(Ec), 0, 1023);             // On utilise abs(pwm) pour la valeur de puissance et on contraint entre 0 et 1023
+    pwmd = constrain((int)abs(Ecd), 0, 1023);             // On utilise abs(Ec) pour la valeur de puissance et on contraint entre 0 et 1023
+    pwmg = constrain((int)abs(Ecg), 0, 1023);
 
-    if (Ec > 0)
+    if (Ecd > 0)
     {
-      ledcWrite(PWM_CH1, pwm);
+      ledcWrite(PWM_CH1, pwmd);
       ledcWrite(PWM_CH2, 0);
       ledcWrite(PWM_CH3, 0);
-      ledcWrite(PWM_CH4, pwm);
+      ledcWrite(PWM_CH4, pwmg);
     }
     else
     {
       ledcWrite(PWM_CH1, 0);
-      ledcWrite(PWM_CH2, pwm);
-      ledcWrite(PWM_CH3, pwm);
+      ledcWrite(PWM_CH2, pwmd);
+      ledcWrite(PWM_CH3, pwmg);
       ledcWrite(PWM_CH4, 0);
     }
     FlagCalcul = 1;
     vTaskDelayUntil(&t_precedent, pdMS_TO_TICKS(Te));       // Attendre jusqu'à la prochaine période d'échantillonnage
   }
 }
-
 
 void reception(char ch)
 {
@@ -187,8 +186,11 @@ void reception(char ch)
 
     if (commande == "Kp")   Kp = valeur.toFloat();
     if (commande == "Kd")   Kd = valeur.toFloat();
-    if (commande == "Ec_offset")   Ec_offset = valeur.toFloat();
-    if (commande == "pwm")   pwm = valeur.toInt();
+    if (commande == "C0g")   C0g = valeur.toInt();
+    if (commande == "C0d")   C0d = valeur.toInt();
+    if (commande == "pwmd")   pwmd = valeur.toInt();
+    if (commande == "pwmg")   pwmg = valeur.toInt();
+    if (commande == "Ec")   Ec = valeur.toFloat();
     
     chaine = "";
   }
@@ -198,7 +200,6 @@ void reception(char ch)
   }
 }
 
-
 void serialEvent()
 {
   while (Serial.available() > 0) // tant qu'il y a des caractères à lire
@@ -207,12 +208,12 @@ void serialEvent()
   }
 }
 
-
 void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f %d %f\n", angleAcc, gyroz, angle_filtre, pwm, Ec);
+    Serial.printf("%f %f %f %d %d %f\n", angleAcc, gyroz, angle_filtre, pwmd, pwmg, Ec);
     FlagCalcul = 0;
   }
 }
+// motg 585 motd 589
