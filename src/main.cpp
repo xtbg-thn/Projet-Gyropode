@@ -9,15 +9,15 @@ char FlagCalcul = 0;
 float Ve, Vs = 0;
 float Te = 5;               // période d'échantillonage en ms
 float Tau = 500;            // constante de temps du filtre en ms
-float Kp = 15.0;
-float Kd = 1.0;
+float Kp = 20.0;
+float Kd = 0.6;
 
 float ax, ay, gz;
 float gyroz;
 float angleAcc;
 float E_filtrer;
 float angle_filtre = 0;
-float Oeq = 0;
+float Oeq = -0.55;
 float angle_offset;
 float ec_final, erreur, Ec, Ecd, Ecg;
 int C0g = 585, C0d = 589;
@@ -135,8 +135,8 @@ void controle(void *parameters)
     Ecd = Ec;
     Ecg = Ec;
 
-    if (Ec>0) Ecd += C0d; Ecg += C0g;                              // compensation de couple de forttement sec  +
-    if (Ec<0) Ecd -= C0d; Ecg -= C0g;                              //                    "                      -
+    if (Ec>0) {Ecd += C0d; Ecg += C0g;}                              // compensation de couple de forttement sec  +
+    if (Ec<0) {Ecd -= C0d; Ecg -= C0g;}                              //                    "                      -
 
     pwmd = constrain((int)abs(Ecd), 0, 1023);             // On utilise abs(Ec) pour la valeur de puissance et on contraint entre 0 et 1023
     pwmg = constrain((int)abs(Ecg), 0, 1023);
@@ -212,7 +212,7 @@ void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f %d %d %f\n", angleAcc, gyroz, angle_filtre, pwmd, pwmg, Ec);
+    Serial.printf("%f %f %f %f %f\n", angleAcc, gyroz, angle_filtre, Oeq, Ec);
     FlagCalcul = 0;
   }
 }
