@@ -3,27 +3,34 @@
 #include <Wire.h>
 #include <Adafruit_MPU6050.h>
 #include <Adafruit_Sensor.h>
+#include <ESP32Encoder.h>
 
 // --- Variables d'Asservissement ---
 char FlagCalcul = 0;
-float Ve, Vs = 0;
 float Te = 5;               // période d'échantillonage en ms
 float Tau = 500;            // constante de temps du filtre en ms
 float Kp = 20.0;
 float Kd = 0.6;
+float Vcons = 0;
+float Kpv;
+float Kdv;
+float Oeq = -1.20;     // -3.5499573 angle trouver  avec le cable
+int C0g = 585, C0d = 589;
+int incr = 748;
+float R = 0;
 
 float ax, ay, gz;
 float gyroz;
 float angleAcc;
 float E_filtrer;
-float angle_filtre = 0;
-float Oeq = -0.55;
-float angle_offset;
+float angle_filtre;
+float Vmes;
 float ec_final, erreur, Ec, Ecd, Ecg;
-int C0g = 585, C0d = 589;
 volatile int pwmg, pwmd;
+float encd, encg;
+float posg, posd, pos_precg = 0, pos_precd = 0;
+float vd, vg;
 
-float erreur_precedente = 0.0;
 unsigned long t_precedent = 0;
 
 // --- Pins Mini L298N ---
@@ -50,11 +57,22 @@ void controle(void *parameters);
 Adafruit_MPU6050 mpu;
 SemaphoreHandle_t dataMutex = xSemaphoreCreateMutex();
 
+ESP32Encoder encoderD;
+ESP32Encoder encoderG;
+
 void setup()
 {
   // put your setup code here, to run once:
   Serial.begin(115200);
   //  Wire.begin(21, 22);
+
+  // use pin 33 and 32 for the first encoder
+	encoderG.attachHalfQuad(33, 32);
+	// use pin 34 and 35 for the second encoder
+	encoderD.attachHalfQuad(35, 34);
+  
+  encoderG.setCount(0);
+  encoderD.setCount(0);
 
   // Setup motor pins and LEDC channels
   pinMode(IN1, OUTPUT);
@@ -129,16 +147,27 @@ void controle(void *parameters)
 
   while (1)
   {
+    encd = encoderD.getCount();
+    encg = encoderG.getCount();
+
+    posd = (10 * R) / incr;
+    posg = (10 * R) / incr;
+
+    vd = (posd - pos_precd) / Te;
+    vg = (posg - pos_precg) / Te;
+
+    pos_precd = posd;
+    pos_precg = posg;
 
     erreur = Oeq - angle();
     Ec = erreur * Kp + Kd * (gz * (180/PI));                
     Ecd = Ec;
     Ecg = Ec;
 
-    if (Ec>0) {Ecd += C0d; Ecg += C0g;}                              // compensation de couple de forttement sec  +
-    if (Ec<0) {Ecd -= C0d; Ecg -= C0g;}                              //                    "                      -
+    if (Ec>0) {Ecd += C0d; Ecg += C0g;}                      // compensation de couple de forttement sec  +
+    if (Ec<0) {Ecd -= C0d; Ecg -= C0g;}                      //                    "                      -
 
-    pwmd = constrain((int)abs(Ecd), 0, 1023);             // On utilise abs(Ec) pour la valeur de puissance et on contraint entre 0 et 1023
+    pwmd = constrain((int)abs(Ecd), 0, 1023);                // On utilise abs(Ec) pour la valeur de puissance et on contraint entre 0 et 1023
     pwmg = constrain((int)abs(Ecg), 0, 1023);
 
     if (Ecd > 0)
@@ -186,12 +215,9 @@ void reception(char ch)
 
     if (commande == "Kp")   Kp = valeur.toFloat();
     if (commande == "Kd")   Kd = valeur.toFloat();
-    if (commande == "C0g")   C0g = valeur.toInt();
-    if (commande == "C0d")   C0d = valeur.toInt();
-    if (commande == "pwmd")   pwmd = valeur.toInt();
-    if (commande == "pwmg")   pwmg = valeur.toInt();
-    if (commande == "Ec")   Ec = valeur.toFloat();
-    
+    if (commande == "encd")   encd = valeur.toFloat();
+    if (commande == "encg")   encg = valeur.toFloat();
+
     chaine = "";
   }
   else
@@ -212,7 +238,7 @@ void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f %f %f\n", angleAcc, gyroz, angle_filtre, Oeq, Ec);
+    Serial.printf("%f %f %f   %f %f\n", angleAcc, angle_filtre, Ec, encd, encg);
     FlagCalcul = 0;
   }
 }
