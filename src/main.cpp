@@ -1,3 +1,9 @@
+// Ce code est un programme de contrôle pour un gyropode utilisant un ESP32. 
+// Il utilise des capteurs MPU6050 pour mesurer l'angle et la vitesse, 
+// ainsi que des encodeurs pour mesurer la position des roues. 
+// Le programme implémente un contrôle en boucle fermée pour maintenir le gyropode en équilibre. 
+// Les paramètres de contrôle peuvent être ajustés via la communication série.
+
 #include <Arduino.h>
 #include <String.h>
 #include <Wire.h>
@@ -16,8 +22,8 @@ float Kpv;
 float Kdv;
 float Oeq = -1.20;     // -3.5499573 angle trouver  avec le cable
 int C0g = 585, C0d = 589;
-int incr = 748;
-float R = 0;
+int incr = 748;             // nombre d'incrément par tour de roue
+float R = 0.035;            // rayon de la roue en m
 
 float ax, ay, gz;
 float gyroz;
@@ -27,9 +33,13 @@ float angle_filtre;
 float Vmes;
 float ec_final, erreur, Ec, Ecd, Ecg;
 volatile int pwmg, pwmd;
-float encd, encg;
-float posg, posd, pos_precg = 0, pos_precd = 0;
-float vd, vg;
+float encd = 0, encg = 0;
+float posg=0, posd=0, pos_precg = 0, pos_precd = 0;
+float vd=0, vg=0;
+
+float eVin, ePVit, dVit, eVit;
+float vLinF=0;
+float Ocons,Teta, eTeta, posd_ref, posg_ref;
 
 unsigned long t_precedent = 0;
 
@@ -147,19 +157,37 @@ void controle(void *parameters)
 
   while (1)
   {
+    // Calcul de la vitesse de déplacement du gyropode
     encd = encoderD.getCount();
     encg = encoderG.getCount();
 
-    posd = (10 * R) / incr;
-    posg = (10 * R) / incr;
+    posd = encd* (360 * R) / incr;
+    posg = encg* (360 * R) / incr;
 
-    vd = (posd - pos_precd) / Te;
-    vg = (posg - pos_precg) / Te;
+    vd = (posd - pos_precd) / (Te*1000); // en m/s
+    vg = (posg - pos_precg) / (Te*1000); // en m/s
+    
+   
+    // Vitesse linéaire calculée à partir des vitesses des roues
+    vLinF = (vd + vg) / 2; 
 
+    // Calcul des variables de Asservissement de Vitesse
+    eVit = Vcons - vLinF;     // Erreur de la Vitesse
+    dVit = eVit - ePVit;      // Dérivé du kdVitesse
+    
+    // Mise à jour des positions précédentes pour le prochain calcul de vitesse
     pos_precd = posd;
     pos_precg = posg;
 
-    erreur = Oeq - angle();
+    // Mise à jour de ePVit pour le prochain calcul de dVit
+    ePVit = eVit;
+
+    // Asservissement Vitesse
+    Ocons = Kpv * eVit + Kdv * dVit;
+    //Ocons = constrain(Ocons, -2.0 / 180 * PI, 2.0 / 180 * PI);
+    eTeta = Ocons - Teta; // Erreur de Position
+
+    erreur = Ocons + Oeq - angle();
     Ec = erreur * Kp + Kd * (gz * (180/PI));                
     Ecd = Ec;
     Ecg = Ec;
@@ -215,8 +243,8 @@ void reception(char ch)
 
     if (commande == "Kp")   Kp = valeur.toFloat();
     if (commande == "Kd")   Kd = valeur.toFloat();
-    if (commande == "encd")   encd = valeur.toFloat();
-    if (commande == "encg")   encg = valeur.toFloat();
+    if (commande == "Kpv")   Kpv = valeur.toFloat();
+    if (commande == "Kdv")   Kdv = valeur.toFloat();
 
     chaine = "";
   }
@@ -238,7 +266,8 @@ void loop()
 {
   if (FlagCalcul == 1)
   {
-    Serial.printf("%f %f %f   %f %f\n", angleAcc, angle_filtre, Ec, encd, encg);
+   // Serial.printf("%f %f %f %f\n", angle_filtre, Ec, Ocons, vLinF);
+   Serial.printf("%f %f %f %f\n",posd, posg, vLinF, Ocons);
     FlagCalcul = 0;
   }
 }
