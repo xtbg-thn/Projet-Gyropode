@@ -1,27 +1,18 @@
-# Gyro Control System
+# Gyropode Control System
 
 ![Gyropode](images/gyro.png)
 
 ## Overview
-This project implements a control system using the MPU6050 sensor. The system is designed to read data from the MPU6050, process it, and implement control logic based on the sensor readings. The project is structured into multiple source files for better organization and modularity.
+This project implements a control system for a gyropode (self-balancing robot) using an ESP32 microcontroller. The system reads data from the MPU6050 sensor for angle estimation and wheel encoders for position and velocity feedback. It implements closed-loop control to maintain balance and respond to speed commands. The code is contained in a single main.cpp file for simplicity.
 
 ## Project Structure
 ```
-gyro-control
+gyro-raz
 ├── src
-│   ├── main.cpp          # Entry point of the application
-│   ├── mpu6050.h        # Header file for MPU6050 functions
-│   ├── mpu6050.cpp      # Implementation of MPU6050 functions
-│   ├── control.h        # Header file for control functions
-│   ├── control.cpp      # Implementation of control functions
-│   ├── comms.h          # Header file for communication functions
-│   └── comms.cpp        # Implementation of communication functions
-├── include
-│   └── config.h         # Configuration constants and parameters
-├── lib
-│   └── MPU6050          # MPU6050 library files
+│   └── main.cpp         # Main application code
+├── include              # Header files (currently empty)
+├── info_old             # Old information folder
 ├── platformio.ini       # PlatformIO configuration file
-├── .gitignore           # Git ignore file
 └── README.md            # Project documentation
 ```
 
@@ -39,7 +30,19 @@ gyro-control
    Open the project folder in your PlatformIO IDE.
 
 4. **Install Dependencies**: 
-   The MPU6050 library is included in the `lib` directory. Ensure all dependencies are installed by running:
+   The project uses the following libraries, which can be installed via PlatformIO:
+   - Adafruit_MPU6050: For MPU6050 sensor communication
+   - Adafruit_Sensor: Required for sensor data handling
+   - ESP32Encoder: For encoder functionality on ESP32
+   
+   Install them by running:
+   ```
+   pio lib install "adafruit/Adafruit MPU6050"
+   pio lib install "adafruit/Adafruit Unified Sensor"
+   pio lib install "madhephaestus/ESP32Encoder"
+   ```
+   
+   Alternatively, ensure all dependencies are installed by running:
    ```
    pio lib install
    ```
@@ -54,12 +57,12 @@ gyro-control
    ```
 
 ## Usage
-- Once the code is uploaded, the system will start reading data from the MPU6050 sensor.
-- The control logic will process the sensor data and execute the defined control tasks.
-- Use the serial monitor to view the output and debug information.
+- Once the code is uploaded, the system will start reading data from the MPU6050 sensor and wheel encoders.
+- The control logic processes sensor data to maintain balance and control speed.
+- Use the serial monitor to view debug information and adjust parameters via serial commands (e.g., "Kp 20.0").
 
 ## Contributing
 Contributions are welcome! Please fork the repository and submit a pull request for any improvements or bug fixes.
 
 ## License
-This project is licensed under the MIT License. See the LICENSE file for more details.
+This project is open source. Feel free to use and modify it for your own purposes.
