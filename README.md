@@ -65,4 +65,4 @@ gyro-raz
 Contributions are welcome! Please fork the repository and submit a pull request for any improvements or bug fixes.
 
 ## License
-This project is open source. Feel free to use and modify it for your own purposes.
+This project is licensed under the MIT License. See the LICENSE file for more details.
