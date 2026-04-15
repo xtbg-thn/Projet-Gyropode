@@ -16,11 +16,11 @@ char FlagCalcul = 0;
 float Te = 5;               // période d'échantillonage en ms
 float Tau = 500;            // constante de temps du filtre en ms
 float Kp = 20.0;
-float Kd = 0.6;
-float Vcons = 0;
-float Kpv = 0.3;
-float Kdv = 0.8;
-float Kiv;
+float Kd = 0.60;
+float Vcons = 0.0;
+float Kpv = 0.30;
+float Kdv = 0.80;
+float Kiv = 0.085;
 float Oeq = -1.310;          // -3.5499573 angle trouver  avec le cable
 int C0g = 585, C0d = 589;
 int incr = 748;             // nombre d'incrément par tour de roue
