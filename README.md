@@ -1,5 +1,7 @@
 # Gyro Control System
 
+![Gyropode](images/gyro.png)
+
 ## Overview
 This project implements a control system using the MPU6050 sensor. The system is designed to read data from the MPU6050, process it, and implement control logic based on the sensor readings. The project is structured into multiple source files for better organization and modularity.
 

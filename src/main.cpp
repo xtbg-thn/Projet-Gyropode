@@ -18,9 +18,10 @@ float Tau = 500;            // constante de temps du filtre en ms
 float Kp = 20.0;
 float Kd = 0.6;
 float Vcons = 0;
-float Kpv;
-float Kdv;
-float Oeq = -1.20;     // -3.5499573 angle trouver  avec le cable
+float Kpv = 0.3;
+float Kdv = 0.8;
+float Kiv;
+float Oeq = -1.310;          // -3.5499573 angle trouver  avec le cable
 int C0g = 585, C0d = 589;
 int incr = 748;             // nombre d'incrément par tour de roue
 float R = 0.035;            // rayon de la roue en m
@@ -40,6 +41,7 @@ float vd=0, vg=0;
 float eVin, ePVit, dVit, eVit;
 float vLinF=0;
 float Ocons,Teta, eTeta, posd_ref, posg_ref;
+float iVit;
 
 unsigned long t_precedent = 0;
 
@@ -77,9 +79,9 @@ void setup()
   //  Wire.begin(21, 22);
 
   // use pin 33 and 32 for the first encoder
-	encoderG.attachHalfQuad(33, 32);
+	encoderG.attachHalfQuad(32, 33);
 	// use pin 34 and 35 for the second encoder
-	encoderD.attachHalfQuad(35, 34);
+	encoderD.attachHalfQuad(34, 35);
   
   encoderG.setCount(0);
   encoderD.setCount(0);
@@ -164,8 +166,8 @@ void controle(void *parameters)
     posd = encd* (360 * R) / incr;
     posg = encg* (360 * R) / incr;
 
-    vd = (posd - pos_precd) / (Te*1000); // en m/s
-    vg = (posg - pos_precg) / (Te*1000); // en m/s
+    vd = (posd - pos_precd) / (Te/1000); // en m/s
+    vg = (posg - pos_precg) / (Te/1000); // en m/s
     
    
     // Vitesse linéaire calculée à partir des vitesses des roues
@@ -173,7 +175,7 @@ void controle(void *parameters)
 
     // Calcul des variables de Asservissement de Vitesse
     eVit = Vcons - vLinF;     // Erreur de la Vitesse
-    dVit = eVit - ePVit;      // Dérivé du kdVitesse
+    dVit = A * dVit + B * (eVit - ePVit);      // Dérivé du kdVitesse filtré
     
     // Mise à jour des positions précédentes pour le prochain calcul de vitesse
     pos_precd = posd;
@@ -182,13 +184,16 @@ void controle(void *parameters)
     // Mise à jour de ePVit pour le prochain calcul de dVit
     ePVit = eVit;
 
-    // Asservissement Vitesse
-    Ocons = Kpv * eVit + Kdv * dVit;
-    //Ocons = constrain(Ocons, -2.0 / 180 * PI, 2.0 / 180 * PI);
-    eTeta = Ocons - Teta; // Erreur de Position
+    iVit = iVit + Kiv * eVit * (Te/1000);           // Intégral de l'erreur de vitesse
+    iVit = constrain(iVit, -1, 1); // Anti-windup pour éviter que l'intégral ne devienne trop grand
 
-    erreur = Ocons + Oeq - angle();
-    Ec = erreur * Kp + Kd * (gz * (180/PI));                
+    // Asservissement Vitesse
+    Ocons = Kpv * eVit + Kdv * dVit + iVit;
+    //Ocons = constrain(Ocons, -2.0 / 180 * PI, 2.0 / 180 * PI);
+    
+    Teta = angle();
+    eTeta = Ocons + Oeq - Teta;
+    Ec = eTeta * Kp + Kd * (gz * (180/PI));                
     Ecd = Ec;
     Ecg = Ec;
 
@@ -245,7 +250,8 @@ void reception(char ch)
     if (commande == "Kd")   Kd = valeur.toFloat();
     if (commande == "Kpv")   Kpv = valeur.toFloat();
     if (commande == "Kdv")   Kdv = valeur.toFloat();
-
+    if (commande == "Kiv")   Kiv = valeur.toFloat();
+    
     chaine = "";
   }
   else
@@ -267,7 +273,7 @@ void loop()
   if (FlagCalcul == 1)
   {
    // Serial.printf("%f %f %f %f\n", angle_filtre, Ec, Ocons, vLinF);
-   Serial.printf("%f %f %f %f\n",posd, posg, vLinF, Ocons);
+   Serial.printf("%f %f %f %f\n", iVit, vLinF, Teta, dVit);
     FlagCalcul = 0;
   }
 }
